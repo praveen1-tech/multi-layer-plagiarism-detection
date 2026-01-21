@@ -76,8 +76,9 @@ class UserManager:
         """Try to connect to database."""
         try:
             from app.core.database import SessionLocal
+            from sqlalchemy import text
             db = SessionLocal()
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
             db.close()
             self.use_database = True
             print("UserManager: Connected to MySQL database")
@@ -97,9 +98,10 @@ class UserManager:
     def _db_get_or_create_user(self, email: str):
         from app.core.database import SessionLocal
         from app.core.models import User
+        from sqlalchemy.orm import joinedload
         db = SessionLocal()
         try:
-            user = db.query(User).filter(User.email == email).first()
+            user = db.query(User).options(joinedload(User.activities)).filter(User.email == email).first()
             if not user:
                 user = User(email=email)
                 db.add(user)
@@ -114,9 +116,10 @@ class UserManager:
         if self.use_database:
             from app.core.database import SessionLocal
             from app.core.models import User
+            from sqlalchemy.orm import joinedload
             db = SessionLocal()
             try:
-                return db.query(User).filter(User.email == email).first()
+                return db.query(User).options(joinedload(User.activities)).filter(User.email == email).first()
             finally:
                 db.close()
         else:
@@ -181,12 +184,13 @@ class UserManager:
         if self.use_database:
             from app.core.database import SessionLocal
             from app.core.models import User
+            from sqlalchemy.orm import joinedload
             db = SessionLocal()
             try:
-                user = db.query(User).filter(User.email == email).first()
+                user = db.query(User).options(joinedload(User.activities)).filter(User.email == email).first()
                 if not user:
                     return None
-                _ = user.activities
+                # _ = user.activities # No longer needed with joinedload
                 return user.to_dict(include_activities=False)
             finally:
                 db.close()

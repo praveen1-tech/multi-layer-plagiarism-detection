@@ -16,8 +16,12 @@ MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "plagiarism_detector")
 
+from urllib.parse import quote_plus
+
 # Build connection URL
-DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+encoded_password = quote_plus(MYSQL_PASSWORD)
+encoded_user = quote_plus(MYSQL_USER)
+DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
 
 # Create engine
 engine = create_engine(
