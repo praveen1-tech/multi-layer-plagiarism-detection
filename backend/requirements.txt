@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sentence-transformers
+nltk
+scikit-learn
+numpy
+python-multipart
+requests
+sqlalchemy
+pymysql
+python-dotenv
+cryptography
