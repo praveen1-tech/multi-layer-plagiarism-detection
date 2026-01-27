@@ -29,7 +29,12 @@ class FeedbackManager:
         submitted_text: str,
         match_score: float,
         feedback_type: str,
-        username: Optional[str] = None
+        username: Optional[str] = None,
+        severity: int = 50,
+        detection_layer: Optional[str] = None,
+        confidence_override: Optional[int] = None,
+        notes: Optional[str] = None,
+        is_instructor_review: bool = False
     ) -> Dict:
         """
         Submit feedback on a detection result.
@@ -40,6 +45,11 @@ class FeedbackManager:
             match_score: The similarity score (0-100)
             feedback_type: 'false_positive' or 'confirmed'
             username: Optional user email
+            severity: Plagiarism severity rating (0-100)
+            detection_layer: Which layer triggered the match (semantic/stylometry/cross_lang/paraphrase)
+            confidence_override: User's suggested confidence level (0-100)
+            notes: Additional notes from reviewer
+            is_instructor_review: Whether this is an instructor-level review
             
         Returns:
             Dict with feedback ID and status
@@ -57,14 +67,22 @@ class FeedbackManager:
                 user = db.query(User).filter(User.email == username).first()
                 if user:
                     user_id = user.id
+                    # Check if user is instructor
+                    if user.role in ('instructor', 'admin'):
+                        is_instructor_review = True
             
-            # Create feedback entry
+            # Create feedback entry with all fields
             feedback = Feedback(
                 user_id=user_id,
                 doc_id=doc_id,
                 submitted_text_hash=self._hash_text(submitted_text),
                 match_score=int(match_score),
-                feedback_type=feedback_type
+                feedback_type=feedback_type,
+                severity=severity,
+                detection_layer=detection_layer,
+                confidence_override=confidence_override,
+                notes=notes,
+                is_instructor_review=is_instructor_review
             )
             db.add(feedback)
             db.commit()
@@ -77,6 +95,7 @@ class FeedbackManager:
                 "id": feedback.id,
                 "status": "success",
                 "feedback_type": feedback_type,
+                "is_instructor_review": is_instructor_review,
                 "threshold_adjustment": self._threshold_adjustment
             }
         finally:

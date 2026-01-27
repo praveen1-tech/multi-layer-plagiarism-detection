@@ -1,7 +1,7 @@
 """
 SQLAlchemy ORM models for the database.
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, LargeBinary, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, LargeBinary, JSON, Float, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -13,6 +13,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    role = Column(String(20), default='student')  # student/instructor/admin
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship to activities
@@ -22,6 +23,7 @@ class User(Base):
         data = {
             "username": self.email,  # Keep 'username' key for frontend compatibility
             "email": self.email,
+            "role": self.role or 'student',
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "stats": self.get_stats()
         }
@@ -109,6 +111,14 @@ class Feedback(Base):
     submitted_text_hash = Column(String(64), nullable=False)  # SHA256 hash of submitted text
     match_score = Column(Integer, nullable=False)  # Original match score (0-100)
     feedback_type = Column(String(20), nullable=False)  # 'false_positive' or 'confirmed'
+    
+    # Fine-grained feedback fields
+    severity = Column(Integer, default=50)  # 0-100 plagiarism severity rating
+    detection_layer = Column(String(30), nullable=True)  # semantic/stylometry/cross_lang/paraphrase
+    confidence_override = Column(Integer, nullable=True)  # User's suggested confidence (0-100)
+    notes = Column(Text, nullable=True)  # Instructor notes/comments
+    is_instructor_review = Column(Boolean, default=False)  # Whether reviewed by instructor
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship to user
@@ -120,5 +130,36 @@ class Feedback(Base):
             "doc_id": self.doc_id,
             "match_score": self.match_score,
             "feedback_type": self.feedback_type,
+            "severity": self.severity,
+            "detection_layer": self.detection_layer,
+            "confidence_override": self.confidence_override,
+            "notes": self.notes,
+            "is_instructor_review": self.is_instructor_review,
             "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class LayerWeights(Base):
+    """Model for storing adaptive detection layer weights."""
+    __tablename__ = "layer_weights"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    semantic_weight = Column(Float, default=0.5)  # Weight for semantic similarity
+    stylometry_weight = Column(Float, default=0.3)  # Weight for stylometric analysis
+    cross_lang_weight = Column(Float, default=0.2)  # Weight for cross-language detection
+    base_threshold = Column(Float, default=40.0)  # Base detection threshold
+    threshold_adjustment = Column(Float, default=0.0)  # Current threshold adjustment
+    total_feedback_processed = Column(Integer, default=0)  # Feedback count used for training
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            "semantic_weight": round(self.semantic_weight, 3),
+            "stylometry_weight": round(self.stylometry_weight, 3),
+            "cross_lang_weight": round(self.cross_lang_weight, 3),
+            "base_threshold": round(self.base_threshold, 1),
+            "threshold_adjustment": round(self.threshold_adjustment, 1),
+            "effective_threshold": round(self.base_threshold + self.threshold_adjustment, 1),
+            "total_feedback_processed": self.total_feedback_processed,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

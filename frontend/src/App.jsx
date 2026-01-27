@@ -3,6 +3,7 @@ import axios from 'axios';
 import UploadForm from './components/UploadForm';
 import Results from './components/Results';
 import UserProfile from './components/UserProfile';
+import FeedbackDashboard from './components/FeedbackDashboard';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -15,8 +16,10 @@ function App() {
 
   // User state
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [userRole, setUserRole] = useState('student');  // student/instructor/admin
   const [emailInput, setEmailInput] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const fetchReferences = async () => {
     try {
@@ -290,13 +293,32 @@ function App() {
               {res.error ? (
                 <p className="text-red-500">{res.error}</p>
               ) : (
-                <Results result={res.result} username={userEmail} submittedText={submittedText} />
+                <Results result={res.result} username={userEmail} userRole={userRole} submittedText={submittedText} />
               )}
             </div>
           ))}
         </div>
       ) : (
-        <Results result={result} username={userEmail} submittedText={submittedText} />
+        <Results result={result} username={userEmail} userRole={userRole} submittedText={submittedText} />
+      )}
+
+      {/* Learning Dashboard Toggle */}
+      {userEmail && (
+        <div className="max-w-4xl mx-auto mt-6">
+          <button
+            onClick={() => setShowDashboard(!showDashboard)}
+            className="w-full py-2 px-4 bg-purple-50 text-purple-700 rounded-lg border border-purple-200 hover:bg-purple-100 font-medium text-sm flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {showDashboard ? 'Hide Learning Dashboard' : 'Show Learning Dashboard'}
+          </button>
+        </div>
+      )}
+
+      {showDashboard && (
+        <FeedbackDashboard username={userEmail} userRole={userRole} />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import re
 from app.core.detector import detector
 from app.core.user_manager import user_manager
 from app.core.feedback_manager import feedback_manager
+from app.core.adaptive_engine import adaptive_engine
 from app.core.database import init_db
 
 app = FastAPI(title="Plagiarism Detection Agent")
@@ -263,12 +264,23 @@ class FeedbackSubmission(BaseModel):
     submitted_text: str
     match_score: float
     feedback_type: str  # 'false_positive' or 'confirmed'
+    severity: Optional[int] = 50  # 0-100 plagiarism severity
+    detection_layer: Optional[str] = None  # semantic/stylometry/cross_lang/paraphrase
+    confidence_override: Optional[int] = None  # User's suggested confidence
+    notes: Optional[str] = None  # Reviewer notes
     
     @field_validator('feedback_type')
     @classmethod
     def validate_feedback_type(cls, v):
         if v not in ('false_positive', 'confirmed'):
             raise ValueError("feedback_type must be 'false_positive' or 'confirmed'")
+        return v
+    
+    @field_validator('detection_layer')
+    @classmethod
+    def validate_detection_layer(cls, v):
+        if v is not None and v not in ('semantic', 'stylometry', 'cross_lang', 'paraphrase'):
+            raise ValueError("detection_layer must be one of: semantic, stylometry, cross_lang, paraphrase")
         return v
 
 
@@ -281,7 +293,11 @@ async def submit_feedback(feedback: FeedbackSubmission, x_username: Optional[str
             submitted_text=feedback.submitted_text,
             match_score=feedback.match_score,
             feedback_type=feedback.feedback_type,
-            username=x_username
+            username=x_username,
+            severity=feedback.severity or 50,
+            detection_layer=feedback.detection_layer,
+            confidence_override=feedback.confidence_override,
+            notes=feedback.notes
         )
         
         # Log activity
@@ -289,7 +305,9 @@ async def submit_feedback(feedback: FeedbackSubmission, x_username: Optional[str
             user_manager.log_activity(x_username, "feedback_submit", {
                 "doc_id": feedback.doc_id,
                 "feedback_type": feedback.feedback_type,
-                "match_score": feedback.match_score
+                "match_score": feedback.match_score,
+                "severity": feedback.severity,
+                "detection_layer": feedback.detection_layer
             })
         
         return result
@@ -299,7 +317,7 @@ async def submit_feedback(feedback: FeedbackSubmission, x_username: Optional[str
 
 @app.get("/feedback/stats")
 async def get_feedback_stats():
-    """Get feedback statistics and learning status."""
+    """Get basic feedback statistics and learning status."""
     return feedback_manager.get_stats()
 
 
@@ -308,3 +326,52 @@ async def get_feedback_history(limit: int = 20):
     """Get recent feedback entries."""
     history = feedback_manager.get_history(limit)
     return {"history": history, "count": len(history)}
+
+
+@app.get("/feedback/analytics")
+async def get_feedback_analytics():
+    """Get detailed feedback analytics including layer breakdown and thresholds."""
+    return adaptive_engine.get_analytics()
+
+
+@app.post("/feedback/retrain")
+async def trigger_retrain(x_username: Optional[str] = Header(None)):
+    """Trigger incremental retraining based on accumulated feedback."""
+    result = adaptive_engine.trigger_retrain()
+    
+    # Log activity
+    if x_username:
+        user_manager.log_activity(x_username, "retrain_trigger", {
+            "new_threshold": result.get("new_effective_threshold")
+        })
+    
+    return result
+
+
+@app.get("/learning/weights")
+async def get_learning_weights():
+    """Get current adaptive layer weights and threshold settings."""
+    return adaptive_engine.get_or_create_weights()
+
+
+@app.post("/user/role/{username}")
+async def update_user_role(username: str, role: str, x_username: Optional[str] = Header(None)):
+    """Update a user's role (admin only)."""
+    if role not in ('student', 'instructor', 'admin'):
+        raise HTTPException(status_code=400, detail="Role must be: student, instructor, or admin")
+    
+    from app.core.database import SessionLocal
+    from app.core.models import User
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == username).first()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User '{username}' not found")
+        
+        user.role = role
+        db.commit()
+        
+        return {"status": "success", "username": username, "new_role": role}
+    finally:
+        db.close()

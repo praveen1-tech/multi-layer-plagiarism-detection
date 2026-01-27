@@ -1,7 +1,7 @@
 import React from 'react';
 import FeedbackPanel from './FeedbackPanel';
 
-const Results = ({ result, username, submittedText }) => {
+const Results = ({ result, username, userRole, submittedText }) => {
     if (!result) return null;
 
     // Safely get values with defaults
@@ -39,6 +39,7 @@ const Results = ({ result, username, submittedText }) => {
                                 matchScore={match.score}
                                 submittedText={submittedText || ''}
                                 username={username}
+                                userRole={userRole}
                             />
                         </div>
                     ))}
