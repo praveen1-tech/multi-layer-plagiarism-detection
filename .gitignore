@@ -94,3 +94,4 @@ pids
 coverage/
 *.lcov
 lib-cov
+features.txt
