@@ -13,7 +13,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    role = Column(String(20), default='student')  # student/instructor/admin
+    role = Column(String(20), default='user')  # user/instructor/admin
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship to activities
@@ -23,7 +23,7 @@ class User(Base):
         data = {
             "username": self.email,  # Keep 'username' key for frontend compatibility
             "email": self.email,
-            "role": self.role or 'student',
+            "role": self.role or 'user',
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "stats": self.get_stats()
         }

@@ -357,8 +357,8 @@ async def get_learning_weights():
 @app.post("/user/role/{username}")
 async def update_user_role(username: str, role: str, x_username: Optional[str] = Header(None)):
     """Update a user's role (admin only)."""
-    if role not in ('student', 'instructor', 'admin'):
-        raise HTTPException(status_code=400, detail="Role must be: student, instructor, or admin")
+    if role not in ('user', 'instructor', 'admin'):
+        raise HTTPException(status_code=400, detail="Role must be: user, instructor, or admin")
     
     from app.core.database import SessionLocal
     from app.core.models import User
