@@ -16,7 +16,7 @@ function App() {
 
   // User state
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
-  const [userRole, setUserRole] = useState('student');  // student/instructor/admin
+  const [userRole, setUserRole] = useState('user');  // user/instructor/admin
   const [emailInput, setEmailInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
@@ -87,8 +87,9 @@ function App() {
     }
 
     try {
-      await axios.post(`${API_BASE}/user/login`, { email: trimmedEmail });
+      const response = await axios.post(`${API_BASE}/user/login`, { email: trimmedEmail });
       setUserEmail(trimmedEmail);
+      setUserRole(response.data.user?.role || 'user');
       localStorage.setItem('userEmail', trimmedEmail);
       setEmailInput('');
     } catch (err) {
@@ -104,6 +105,7 @@ function App() {
 
   const handleLogout = () => {
     setUserEmail('');
+    setUserRole('user');
     localStorage.removeItem('userEmail');
     setResult(null);
   };
@@ -302,8 +304,8 @@ function App() {
         <Results result={result} username={userEmail} userRole={userRole} submittedText={submittedText} />
       )}
 
-      {/* Learning Dashboard Toggle */}
-      {userEmail && (
+      {/* Learning Dashboard Toggle - Admin Only */}
+      {userEmail && userRole === 'admin' && (
         <div className="max-w-4xl mx-auto mt-6">
           <button
             onClick={() => setShowDashboard(!showDashboard)}
