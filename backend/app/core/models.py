@@ -97,3 +97,28 @@ class ReferenceDocument(Base):
             "preview": self.text[:100] + "..." if len(self.text) > 100 else self.text,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
+
+
+class Feedback(Base):
+    """Feedback model for storing user corrections on detection results."""
+    __tablename__ = "feedback"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    doc_id = Column(String(255), nullable=False, index=True)  # Reference document ID
+    submitted_text_hash = Column(String(64), nullable=False)  # SHA256 hash of submitted text
+    match_score = Column(Integer, nullable=False)  # Original match score (0-100)
+    feedback_type = Column(String(20), nullable=False)  # 'false_positive' or 'confirmed'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship to user
+    user = relationship("User", backref="feedback_entries")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "doc_id": self.doc_id,
+            "match_score": self.match_score,
+            "feedback_type": self.feedback_type,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }

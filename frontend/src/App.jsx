@@ -8,6 +8,7 @@ const API_BASE = 'http://localhost:8000';
 
 function App() {
   const [result, setResult] = useState(null);
+  const [submittedText, setSubmittedText] = useState('');  // Track submitted text for feedback
   const [references, setReferences] = useState([]);
   const [showReferences, setShowReferences] = useState(false);
   const [viewingReference, setViewingReference] = useState(null);
@@ -272,10 +273,11 @@ function App() {
       </div>
 
       <UploadForm
-        onResult={setResult}
+        onResult={(data) => { setResult(data); }}
         onFileResults={setResult}
         onReferencesUpdated={fetchReferences}
         username={userEmail}
+        onTextSubmit={setSubmittedText}
       />
 
       {Array.isArray(result) ? (
@@ -288,13 +290,13 @@ function App() {
               {res.error ? (
                 <p className="text-red-500">{res.error}</p>
               ) : (
-                <Results result={res.result} />
+                <Results result={res.result} username={userEmail} submittedText={submittedText} />
               )}
             </div>
           ))}
         </div>
       ) : (
-        <Results result={result} />
+        <Results result={result} username={userEmail} submittedText={submittedText} />
       )}
     </div>
   );

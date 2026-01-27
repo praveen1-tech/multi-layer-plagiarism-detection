@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const API_BASE = 'http://localhost:8000';
 
-const UploadForm = ({ onResult, onFileResults, onReferencesUpdated, username }) => {
+const UploadForm = ({ onResult, onFileResults, onReferencesUpdated, username, onTextSubmit }) => {
     const [mode, setMode] = useState('text'); // 'text', 'file', or 'reference'
     const [text, setText] = useState('');
     const [files, setFiles] = useState([]);
@@ -23,6 +23,7 @@ const UploadForm = ({ onResult, onFileResults, onReferencesUpdated, username }) 
                     text: text,
                     username: username  // Include username for activity tracking
                 });
+                if (onTextSubmit) onTextSubmit(text);  // Report submitted text for feedback
                 onResult(response.data);
             } else if (mode === 'file') {
                 const formData = new FormData();

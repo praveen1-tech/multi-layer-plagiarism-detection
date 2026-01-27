@@ -5,6 +5,7 @@ from typing import Optional, Any
 import re
 from app.core.detector import detector
 from app.core.user_manager import user_manager
+from app.core.feedback_manager import feedback_manager
 from app.core.database import init_db
 
 app = FastAPI(title="Plagiarism Detection Agent")
@@ -254,3 +255,56 @@ async def detect_files(files: list[UploadFile], x_username: Optional[str] = Head
         })
     
     return results
+
+# ============== Feedback Endpoints (Self-Learning) ==============
+
+class FeedbackSubmission(BaseModel):
+    doc_id: str
+    submitted_text: str
+    match_score: float
+    feedback_type: str  # 'false_positive' or 'confirmed'
+    
+    @field_validator('feedback_type')
+    @classmethod
+    def validate_feedback_type(cls, v):
+        if v not in ('false_positive', 'confirmed'):
+            raise ValueError("feedback_type must be 'false_positive' or 'confirmed'")
+        return v
+
+
+@app.post("/feedback")
+async def submit_feedback(feedback: FeedbackSubmission, x_username: Optional[str] = Header(None)):
+    """Submit feedback on a plagiarism detection result for model improvement."""
+    try:
+        result = feedback_manager.submit_feedback(
+            doc_id=feedback.doc_id,
+            submitted_text=feedback.submitted_text,
+            match_score=feedback.match_score,
+            feedback_type=feedback.feedback_type,
+            username=x_username
+        )
+        
+        # Log activity
+        if x_username:
+            user_manager.log_activity(x_username, "feedback_submit", {
+                "doc_id": feedback.doc_id,
+                "feedback_type": feedback.feedback_type,
+                "match_score": feedback.match_score
+            })
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/feedback/stats")
+async def get_feedback_stats():
+    """Get feedback statistics and learning status."""
+    return feedback_manager.get_stats()
+
+
+@app.get("/feedback/history")
+async def get_feedback_history(limit: int = 20):
+    """Get recent feedback entries."""
+    history = feedback_manager.get_history(limit)
+    return {"history": history, "count": len(history)}

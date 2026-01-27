@@ -1,6 +1,7 @@
 import React from 'react';
+import FeedbackPanel from './FeedbackPanel';
 
-const Results = ({ result }) => {
+const Results = ({ result, username, submittedText }) => {
     if (!result) return null;
 
     // Safely get values with defaults
@@ -31,6 +32,14 @@ const Results = ({ result }) => {
                                 <span className="text-sm font-bold text-red-500">{(match.score ?? 0).toFixed(1)}% Match</span>
                             </div>
                             <p className="text-gray-700 text-sm italic">"{match.snippet}"</p>
+
+                            {/* Self-Learning Feedback Panel */}
+                            <FeedbackPanel
+                                docId={match.doc_id}
+                                matchScore={match.score}
+                                submittedText={submittedText || ''}
+                                username={username}
+                            />
                         </div>
                     ))}
                 </div>
@@ -75,3 +84,4 @@ const Results = ({ result }) => {
 };
 
 export default Results;
+
