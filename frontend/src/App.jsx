@@ -102,6 +102,10 @@ function App() {
           headers: { 'X-Username': trimmedEmail }
         });
         setIsAdmin(adminCheck.data.is_admin);
+        // Auto-show admin dashboard for admin users
+        if (adminCheck.data.is_admin) {
+          setShowAdminDashboard(true);
+        }
       } catch {
         setIsAdmin(false);
       }
