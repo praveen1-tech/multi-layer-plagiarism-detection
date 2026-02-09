@@ -49,6 +49,6 @@ def get_db():
 
 def init_db():
     """Initialize database tables."""
-    from app.core.models import User, Activity, ReferenceDocument  # Import models
+    from app.core.models import User, Activity, ReferenceDocument, UserDocument  # Import models
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully!")

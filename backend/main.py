@@ -375,3 +375,177 @@ async def update_user_role(username: str, role: str, x_username: Optional[str] =
         return {"status": "success", "username": username, "new_role": role}
     finally:
         db.close()
+
+
+# ============== Cross-User Plagiarism Detection Endpoints ==============
+
+@app.post("/upload_documents")
+async def upload_documents(files: list[UploadFile], x_username: str = Header(...)):
+    """Upload documents for cross-user plagiarism checking.
+    These documents become part of the corpus that other users are checked against.
+    """
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    results = []
+    success_count = 0
+    
+    for file in files:
+        content = await file.read()
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            results.append({
+                "filename": file.filename,
+                "status": "error",
+                "message": "Could not decode file. Please ensure it is a valid text file."
+            })
+            continue
+
+        if not text.strip():
+            results.append({
+                "filename": file.filename,
+                "status": "error",
+                "message": "File is empty."
+            })
+            continue
+
+        # Store document with user ownership
+        doc_id = file.filename
+        store_result = detector.store_user_document(x_username, doc_id, text)
+        
+        if store_result["status"] == "exists":
+            results.append({
+                "filename": file.filename,
+                "status": "skipped",
+                "message": f"Document '{doc_id}' already exists in your uploads."
+            })
+        else:
+            success_count += 1
+            results.append({
+                "filename": file.filename,
+                "status": "success",
+                "message": f"Stored as '{doc_id}'",
+                "language": store_result.get("language", {})
+            })
+    
+    # Log activity
+    if success_count > 0:
+        user_manager.log_activity(x_username, "document_upload", {
+            "count": success_count,
+            "filenames": [r["filename"] for r in results if r["status"] == "success"]
+        })
+    
+    return {
+        "uploaded": results,
+        "total_user_documents": len(detector.get_user_documents(x_username)),
+        "total_system_documents": detector.get_all_user_documents_count()
+    }
+
+
+@app.get("/my_documents")
+async def get_my_documents(x_username: str = Header(...)):
+    """Get all documents uploaded by the current user."""
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    docs = detector.get_user_documents(x_username)
+    return {"documents": docs, "count": len(docs)}
+
+
+@app.delete("/my_documents/{doc_id}")
+async def delete_my_document(doc_id: str, x_username: str = Header(...)):
+    """Delete one of the current user's uploaded documents."""
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    if not detector.delete_user_document(x_username, doc_id):
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found in your uploads")
+    
+    # Log activity
+    user_manager.log_activity(x_username, "document_delete", {"doc_id": doc_id})
+    
+    return {"status": "deleted", "doc_id": doc_id}
+
+
+class CrossUserSubmission(BaseModel):
+    text: str
+    username: str  # Current user whose documents should be excluded
+
+
+@app.post("/detect_cross_user")
+async def detect_cross_user_plagiarism(submission: CrossUserSubmission):
+    """Check text against all users' uploads except the current user's documents.
+    This enables plagiarism detection between different users.
+    """
+    if not submission.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    if not submission.username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    
+    result = detector.detect_cross_user(submission.text, submission.username)
+    
+    # Log activity
+    user_manager.log_activity(submission.username, "cross_user_check", {
+        "text_length": len(submission.text),
+        "max_score": result.get("max_score", 0),
+        "matches_found": len(result.get("matches", [])),
+        "documents_checked": result.get("total_documents_checked", 0)
+    })
+    
+    return result
+
+
+@app.post("/detect_files_cross_user")
+async def detect_files_cross_user(files: list[UploadFile], x_username: str = Header(...)):
+    """Check uploaded files against all other users' documents.
+    The current user's documents are excluded from comparison.
+    """
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    results = []
+    
+    for file in files:
+        content = await file.read()
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            results.append({
+                "filename": file.filename,
+                "error": "Could not decode file. Please ensure it is a valid text file."
+            })
+            continue
+
+        if not text.strip():
+            results.append({
+                "filename": file.filename,
+                "error": "File is empty."
+            })
+            continue
+
+        # Run cross-user detection
+        detection_data = detector.detect_cross_user(text, x_username)
+        
+        results.append({
+            "filename": file.filename,
+            "result": detection_data
+        })
+    
+    # Log activity
+    if results:
+        max_score = max([r.get("result", {}).get("max_score", 0) for r in results if "result" in r], default=0)
+        user_manager.log_activity(x_username, "cross_user_file_check", {
+            "file_count": len(files),
+            "filenames": [f.filename for f in files],
+            "max_score": max_score
+        })
+    
+    return results
+
+
+@app.get("/system_documents_count")
+async def get_system_documents_count():
+    """Get the total count of user documents in the system."""
+    return {"total": detector.get_all_user_documents_count()}

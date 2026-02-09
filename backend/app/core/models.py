@@ -163,3 +163,29 @@ class LayerWeights(Base):
             "total_feedback_processed": self.total_feedback_processed,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
+
+
+class UserDocument(Base):
+    """Model for storing user uploaded documents for cross-user plagiarism detection."""
+    __tablename__ = "user_documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    doc_id = Column(String(255), nullable=False, index=True)  # filename or identifier
+    text = Column(Text, nullable=False)
+    embedding = Column(LargeBinary, nullable=True)  # Serialized tensor
+    language_code = Column(String(10), nullable=True)  # Detected language
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship to user
+    user = relationship("User", backref="documents")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "doc_id": self.doc_id,
+            "user_email": self.user.email if self.user else None,
+            "preview": self.text[:100] + "..." if len(self.text) > 100 else self.text,
+            "language_code": self.language_code,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
