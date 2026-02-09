@@ -549,3 +549,97 @@ async def detect_files_cross_user(files: list[UploadFile], x_username: str = Hea
 async def get_system_documents_count():
     """Get the total count of user documents in the system."""
     return {"total": detector.get_all_user_documents_count()}
+
+
+# ============== Admin Dashboard Endpoints ==============
+
+def check_admin_role(email: str) -> bool:
+    """Check if user has admin role."""
+    from app.core.database import SessionLocal
+    from app.core.models import User
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        return user and user.role == "admin"
+    finally:
+        db.close()
+
+
+@app.get("/admin/dashboard")
+async def get_admin_dashboard(x_username: str = Header(...)):
+    """Get comprehensive admin dashboard data with user risk categorization.
+    
+    Risk Categories:
+    - high_risk: > 80%
+    - medium_risk: 50% - 80%
+    - normal_risk: 20% - 50%
+    - clean: < 20%
+    """
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    if not check_admin_role(x_username):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user_manager.get_admin_dashboard_data()
+
+
+@app.get("/admin/users")
+async def get_all_users_admin(x_username: str = Header(...)):
+    """Get all users with full details (admin only)."""
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    if not check_admin_role(x_username):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return {"users": user_manager.get_all_users()}
+
+
+@app.get("/admin/risk-categories")
+async def get_risk_categories(x_username: str = Header(...)):
+    """Get users grouped by risk category (admin only)."""
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    if not check_admin_role(x_username):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user_manager.get_users_by_risk_category()
+
+
+@app.post("/admin/set-admin/{target_email}")
+async def set_user_as_admin(target_email: str, x_username: str = Header(...)):
+    """Set a user as admin (admin only)."""
+    if not x_username:
+        raise HTTPException(status_code=400, detail="Username header (x-username) is required")
+    
+    if not check_admin_role(x_username):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    from app.core.database import SessionLocal
+    from app.core.models import User
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == target_email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User '{target_email}' not found")
+        
+        user.role = "admin"
+        db.commit()
+        
+        return {"status": "success", "email": target_email, "role": "admin"}
+    finally:
+        db.close()
+
+
+@app.get("/admin/check")
+async def check_admin_access(x_username: str = Header(...)):
+    """Check if current user has admin access."""
+    if not x_username:
+        return {"is_admin": False}
+    
+    return {"is_admin": check_admin_role(x_username)}
+

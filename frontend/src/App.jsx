@@ -4,6 +4,7 @@ import UploadForm from './components/UploadForm';
 import Results from './components/Results';
 import UserProfile from './components/UserProfile';
 import FeedbackDashboard from './components/FeedbackDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -17,9 +18,11 @@ function App() {
   // User state
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [userRole, setUserRole] = useState('user');  // user/instructor/admin
+  const [isAdmin, setIsAdmin] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
   const fetchReferences = async () => {
     try {
@@ -92,6 +95,16 @@ function App() {
       setUserRole(response.data.user?.role || 'user');
       localStorage.setItem('userEmail', trimmedEmail);
       setEmailInput('');
+
+      // Check admin status
+      try {
+        const adminCheck = await axios.get(`${API_BASE}/admin/check`, {
+          headers: { 'X-Username': trimmedEmail }
+        });
+        setIsAdmin(adminCheck.data.is_admin);
+      } catch {
+        setIsAdmin(false);
+      }
     } catch (err) {
       const errorMsg = err.response?.data?.detail;
       if (Array.isArray(errorMsg)) {
@@ -106,8 +119,10 @@ function App() {
   const handleLogout = () => {
     setUserEmail('');
     setUserRole('user');
+    setIsAdmin(false);
     localStorage.removeItem('userEmail');
     setResult(null);
+    setShowAdminDashboard(false);
   };
 
   useEffect(() => {
@@ -204,6 +219,24 @@ function App() {
 
       {/* User Profile Section */}
       <UserProfile username={userEmail} onLogout={handleLogout} />
+
+      {/* Admin Dashboard Toggle - Admin Only */}
+      {isAdmin && (
+        <div className="max-w-2xl mx-auto mb-4">
+          <button
+            onClick={() => setShowAdminDashboard(!showAdminDashboard)}
+            className={`w-full py-3 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition ${showAdminDashboard ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'}`}
+          >
+            <span>📊</span>
+            {showAdminDashboard ? 'Hide Admin Dashboard' : 'Open Admin Dashboard'}
+          </button>
+        </div>
+      )}
+
+      {/* Admin Dashboard */}
+      {showAdminDashboard && isAdmin && (
+        <AdminDashboard username={userEmail} />
+      )}
 
       {/* Reference Documents Section */}
       <div className="max-w-2xl mx-auto mb-6">

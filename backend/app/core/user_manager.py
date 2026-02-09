@@ -213,6 +213,81 @@ class UserManager:
                 db.close()
         else:
             return [u.to_dict() for u in self.users_memory.values()]
+    
+    def get_users_by_risk_category(self) -> dict:
+        """Get all users grouped by plagiarism risk level.
+        
+        Risk Categories:
+        - high_risk: > 80%
+        - medium_risk: 50% - 80%
+        - normal_risk: 20% - 50%
+        - clean: < 20%
+        """
+        users = self.get_all_users()
+        
+        categories = {
+            "high_risk": [],      # > 80%
+            "medium_risk": [],    # 50% - 80%
+            "normal_risk": [],    # 20% - 50%
+            "clean": []           # < 20%
+        }
+        
+        for user in users:
+            score = user.get("stats", {}).get("highest_plagiarism_score", 0)
+            user_data = {
+                "email": user.get("email"),
+                "highest_score": score,
+                "total_checks": user.get("stats", {}).get("text_checks", 0) + user.get("stats", {}).get("file_checks", 0),
+                "role": user.get("role", "user"),
+                "created_at": user.get("created_at")
+            }
+            
+            if score > 80:
+                categories["high_risk"].append(user_data)
+            elif score >= 50:
+                categories["medium_risk"].append(user_data)
+            elif score >= 20:
+                categories["normal_risk"].append(user_data)
+            else:
+                categories["clean"].append(user_data)
+        
+        # Sort each category by score descending
+        for category in categories:
+            categories[category].sort(key=lambda x: x["highest_score"], reverse=True)
+        
+        return categories
+    
+    def get_admin_dashboard_data(self) -> dict:
+        """Get comprehensive admin dashboard data."""
+        users = self.get_all_users()
+        risk_categories = self.get_users_by_risk_category()
+        
+        # Calculate summary stats
+        total_users = len(users)
+        total_checks = sum(
+            u.get("stats", {}).get("text_checks", 0) + u.get("stats", {}).get("file_checks", 0)
+            for u in users
+        )
+        
+        all_scores = [u.get("stats", {}).get("highest_plagiarism_score", 0) for u in users]
+        avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
+        max_score = max(all_scores) if all_scores else 0
+        
+        return {
+            "summary": {
+                "total_users": total_users,
+                "total_checks": total_checks,
+                "average_score": round(avg_score, 1),
+                "highest_score": round(max_score, 1)
+            },
+            "risk_categories": risk_categories,
+            "category_counts": {
+                "high_risk": len(risk_categories["high_risk"]),
+                "medium_risk": len(risk_categories["medium_risk"]),
+                "normal_risk": len(risk_categories["normal_risk"]),
+                "clean": len(risk_categories["clean"])
+            }
+        }
 
 
 # Global instance
