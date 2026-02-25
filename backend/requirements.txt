@@ -10,3 +10,7 @@ sqlalchemy
 pymysql
 python-dotenv
 cryptography
+bcrypt
+python-jose[cryptography]
+datasets
+pandas

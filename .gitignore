@@ -95,3 +95,7 @@ coverage/
 *.lcov
 lib-cov
 features.txt
+
+# Data
+backend/data/
+backend/download_datasets.py

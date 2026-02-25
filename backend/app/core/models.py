@@ -13,6 +13,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # Nullable for backward compatibility
     role = Column(String(20), default='user')  # user/instructor/admin
     created_at = Column(DateTime, default=datetime.utcnow)
     

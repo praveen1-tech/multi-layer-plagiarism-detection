@@ -111,6 +111,110 @@ class UserManager:
         finally:
             db.close()
     
+    def register_user(self, email: str, password: str):
+        """Register a new user with email and password. Returns (user_dict, error)."""
+        from app.core.auth import hash_password
+        
+        if self.use_database:
+            from app.core.database import SessionLocal
+            from app.core.models import User
+            db = SessionLocal()
+            try:
+                # Check if user already exists
+                existing = db.query(User).filter(User.email == email).first()
+                if existing:
+                    return None, "User with this email already exists"
+                
+                # Create new user with hashed password
+                user = User(email=email, password_hash=hash_password(password))
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                # Return dict while session is still open
+                user_dict = user.to_dict()
+                return user_dict, None
+            finally:
+                db.close()
+        else:
+            # In-memory fallback
+            if email in self.users_memory:
+                return None, "User with this email already exists"
+            user = UserInMemory(email)
+            user.password_hash = hash_password(password)
+            self.users_memory[email] = user
+            return user.to_dict(), None
+    
+    def authenticate_user(self, email: str, password: str):
+        """Authenticate user with email and password. Returns (user_dict, error)."""
+        from app.core.auth import verify_password
+        
+        if self.use_database:
+            from app.core.database import SessionLocal
+            from app.core.models import User
+            from sqlalchemy.orm import joinedload
+            db = SessionLocal()
+            try:
+                user = db.query(User).options(joinedload(User.activities)).filter(User.email == email).first()
+                if not user:
+                    return None, "Invalid email or password"
+                if not user.password_hash:
+                    return None, "Please register first - no password set for this account"
+                if not verify_password(password, user.password_hash):
+                    return None, "Invalid email or password"
+                # Return dict while session is still open
+                user_dict = user.to_dict()
+                return user_dict, None
+            finally:
+                db.close()
+        else:
+            user = self.users_memory.get(email)
+            if not user:
+                return None, "Invalid email or password"
+            if not hasattr(user, 'password_hash') or not user.password_hash:
+                return None, "Please register first - no password set for this account"
+            if not verify_password(password, user.password_hash):
+                return None, "Invalid email or password"
+            return user.to_dict(), None
+    
+    def check_user_exists(self, email: str) -> bool:
+        """Check if a user with the given email exists."""
+        if self.use_database:
+            from app.core.database import SessionLocal
+            from app.core.models import User
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(User.email == email).first()
+                return user is not None
+            finally:
+                db.close()
+        else:
+            return email in self.users_memory
+    
+    def reset_password(self, email: str, new_password: str) -> tuple:
+        """Reset user's password. Returns (success, error_message)."""
+        from app.core.auth import hash_password
+        
+        if self.use_database:
+            from app.core.database import SessionLocal
+            from app.core.models import User
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(User.email == email).first()
+                if not user:
+                    return False, "User not found"
+                
+                user.password_hash = hash_password(new_password)
+                db.commit()
+                return True, None
+            finally:
+                db.close()
+        else:
+            user = self.users_memory.get(email)
+            if not user:
+                return False, "User not found"
+            user.password_hash = hash_password(new_password)
+            return True, None
+    
     def get_user(self, email: str):
         """Get user by email."""
         if self.use_database:

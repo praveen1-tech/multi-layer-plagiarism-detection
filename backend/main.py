@@ -42,6 +42,7 @@ class DetectionResult(BaseModel):
 
 class UserLogin(BaseModel):
     email: str
+    password: str
     
     @field_validator('email')
     @classmethod
@@ -53,14 +54,168 @@ class UserLogin(BaseModel):
         if not re.match(email_pattern, v.strip()):
             raise ValueError('Please enter a valid email address')
         return v.strip().lower()
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if not v or len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return v
+
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    confirm_password: str
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not v or not v.strip():
+            raise ValueError('Email cannot be empty')
+        if not re.match(email_pattern, v.strip()):
+            raise ValueError('Please enter a valid email address')
+        return v.strip().lower()
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if not v or len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return v
 
 # ============== User Endpoints ==============
 
+@app.post("/user/register")
+async def user_register(register: UserRegister):
+    """Register a new user with email and password."""
+    if register.password != register.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    user_dict, error = user_manager.register_user(register.email, register.password)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    # Create JWT token
+    from app.core.auth import create_access_token
+    token = create_access_token(user_dict["email"])
+    
+    return {
+        "status": "success",
+        "message": "Registration successful",
+        "user": user_dict,
+        "token": token
+    }
+
+
 @app.post("/user/login")
 async def user_login(login: UserLogin):
-    """Login or create a new user with email validation."""
-    user = user_manager.get_or_create_user(login.email)
-    return {"status": "success", "user": user.to_dict()}
+    """Login with email and password."""
+    user_dict, error = user_manager.authenticate_user(login.email, login.password)
+    if error:
+        raise HTTPException(status_code=401, detail=error)
+    
+    # Create JWT token
+    from app.core.auth import create_access_token
+    token = create_access_token(user_dict["email"])
+    
+    return {
+        "status": "success",
+        "user": user_dict,
+        "token": token
+    }
+
+
+@app.get("/user/me")
+async def get_current_user(authorization: str = Header(None)):
+    """Get current user from JWT token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+    
+    token = authorization.replace("Bearer ", "")
+    
+    from app.core.auth import verify_token
+    email = verify_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    user = user_manager.get_user(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"user": user.to_dict()}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not v or not v.strip():
+            raise ValueError('Email cannot be empty')
+        if not re.match(email_pattern, v.strip()):
+            raise ValueError('Please enter a valid email address')
+        return v.strip().lower()
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+    
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v):
+        if not v or len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return v
+
+
+@app.post("/user/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Request a password reset token. In production, this would send an email."""
+    if not user_manager.check_user_exists(request.email):
+        # Don't reveal if user exists or not for security
+        return {
+            "status": "success",
+            "message": "If an account with this email exists, a reset link has been sent."
+        }
+    
+    from app.core.auth import create_reset_token
+    reset_token = create_reset_token(request.email)
+    
+    # In a real app, you would email this token to the user
+    # For this demo, we return it directly
+    return {
+        "status": "success",
+        "message": "Password reset token generated. Use it within 15 minutes.",
+        "reset_token": reset_token  # In production, this would be emailed instead
+    }
+
+
+@app.post("/user/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password using a reset token."""
+    if request.new_password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    from app.core.auth import verify_reset_token
+    email = verify_reset_token(request.token)
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    success, error = user_manager.reset_password(email, request.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {
+        "status": "success",
+        "message": "Password has been reset successfully. You can now login with your new password."
+    }
 
 @app.get("/user/profile/{username}")
 async def get_user_profile(username: str):

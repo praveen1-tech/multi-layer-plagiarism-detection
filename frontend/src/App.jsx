@@ -5,6 +5,9 @@ import Results from './components/Results';
 import UserProfile from './components/UserProfile';
 import FeedbackDashboard from './components/FeedbackDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import SignIn from './components/SignIn';
+import SignUp from './components/SignUp';
+import ForgotPassword from './components/ForgotPassword';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -16,11 +19,12 @@ function App() {
   const [viewingReference, setViewingReference] = useState(null);
 
   // User state
-  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('user');  // user/instructor/admin
   const [isAdmin, setIsAdmin] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('authToken') || '');
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
+  const [authError, setAuthError] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
@@ -68,41 +72,56 @@ function App() {
     setViewingReference(null);
   };
 
-  const validateEmail = (email) => {
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return emailPattern.test(email);
-  };
+  // Check token on mount and restore session
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          const response = await axios.get(`${API_BASE}/user/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          setUserEmail(response.data.user.email);
+          setUserRole(response.data.user.role || 'user');
+          setAuthToken(token);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
+          // Check admin status
+          try {
+            const adminCheck = await axios.get(`${API_BASE}/admin/check`, {
+              headers: { 'X-Username': response.data.user.email }
+            });
+            setIsAdmin(adminCheck.data.is_admin);
+          } catch {
+            setIsAdmin(false);
+          }
+        } catch {
+          // Token invalid, clear it
+          localStorage.removeItem('authToken');
+          setAuthToken('');
+        }
+      }
+    };
+    checkToken();
+    fetchReferences();
+  }, []);
 
-    const trimmedEmail = emailInput.trim().toLowerCase();
-
-    if (!trimmedEmail) {
-      setLoginError('Please enter your email address');
-      return;
-    }
-
-    if (!validateEmail(trimmedEmail)) {
-      setLoginError('Please enter a valid email address (e.g., user@gmail.com)');
-      return;
-    }
-
+  const handleLogin = async (email, password) => {
+    setAuthError('');
     try {
-      const response = await axios.post(`${API_BASE}/user/login`, { email: trimmedEmail });
-      setUserEmail(trimmedEmail);
-      setUserRole(response.data.user?.role || 'user');
-      localStorage.setItem('userEmail', trimmedEmail);
-      setEmailInput('');
+      const response = await axios.post(`${API_BASE}/user/login`, { email, password });
+      const { token, user } = response.data;
+
+      localStorage.setItem('authToken', token);
+      setAuthToken(token);
+      setUserEmail(user.email);
+      setUserRole(user.role || 'user');
 
       // Check admin status
       try {
         const adminCheck = await axios.get(`${API_BASE}/admin/check`, {
-          headers: { 'X-Username': trimmedEmail }
+          headers: { 'X-Username': user.email }
         });
         setIsAdmin(adminCheck.data.is_admin);
-        // Auto-show admin dashboard for admin users
         if (adminCheck.data.is_admin) {
           setShowAdminDashboard(true);
         }
@@ -112,11 +131,36 @@ function App() {
     } catch (err) {
       const errorMsg = err.response?.data?.detail;
       if (Array.isArray(errorMsg)) {
-        setLoginError(errorMsg[0]?.msg || 'Invalid email address');
+        setAuthError(errorMsg[0]?.msg || 'Invalid credentials');
       } else {
-        setLoginError(errorMsg || 'Failed to login. Please try again.');
+        setAuthError(errorMsg || 'Failed to login. Please try again.');
       }
-      console.error('Login error:', err);
+      throw err;
+    }
+  };
+
+  const handleRegister = async (email, password, confirmPassword) => {
+    setAuthError('');
+    try {
+      const response = await axios.post(`${API_BASE}/user/register`, {
+        email,
+        password,
+        confirm_password: confirmPassword
+      });
+      const { token, user } = response.data;
+
+      localStorage.setItem('authToken', token);
+      setAuthToken(token);
+      setUserEmail(user.email);
+      setUserRole(user.role || 'user');
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail;
+      if (Array.isArray(errorMsg)) {
+        setAuthError(errorMsg[0]?.msg || 'Registration failed');
+      } else {
+        setAuthError(errorMsg || 'Failed to register. Please try again.');
+      }
+      throw err;
     }
   };
 
@@ -124,57 +168,41 @@ function App() {
     setUserEmail('');
     setUserRole('user');
     setIsAdmin(false);
-    localStorage.removeItem('userEmail');
+    setAuthToken('');
+    localStorage.removeItem('authToken');
     setResult(null);
     setShowAdminDashboard(false);
+    setAuthMode('signin');
   };
 
-  useEffect(() => {
-    fetchReferences();
-  }, []);
-
-  // Login Screen
+  // Auth Screen
   if (!userEmail) {
+    if (authMode === 'signup') {
+      return (
+        <SignUp
+          onRegister={handleRegister}
+          onSwitchToSignIn={() => { setAuthMode('signin'); setAuthError(''); }}
+          error={authError}
+          setError={setAuthError}
+        />
+      );
+    }
+    if (authMode === 'forgot-password') {
+      return (
+        <ForgotPassword
+          onBackToSignIn={() => { setAuthMode('signin'); setAuthError(''); }}
+          API_BASE={API_BASE}
+        />
+      );
+    }
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-extrabold text-blue-900">Welcome</h1>
-            <p className="text-gray-600 mt-2">Plagiarism Detection Agent</p>
-          </div>
-
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter your email to continue
-              </label>
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="your.email@gmail.com"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                autoFocus
-              />
-            </div>
-
-            {loginError && (
-              <p className="text-red-500 text-sm mb-4">{loginError}</p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
-            >
-              Continue
-            </button>
-          </form>
-
-          <p className="text-xs text-gray-500 text-center mt-4">
-            Your activities will be tracked under this username
-          </p>
-        </div>
-      </div>
+      <SignIn
+        onLogin={handleLogin}
+        onSwitchToSignUp={() => { setAuthMode('signup'); setAuthError(''); }}
+        onForgotPassword={() => { setAuthMode('forgot-password'); setAuthError(''); }}
+        error={authError}
+        setError={setAuthError}
+      />
     );
   }
 
