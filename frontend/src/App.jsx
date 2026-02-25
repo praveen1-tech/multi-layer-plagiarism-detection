@@ -13,20 +13,27 @@ const API_BASE = 'http://localhost:8000';
 
 function App() {
   const [result, setResult] = useState(null);
-  const [submittedText, setSubmittedText] = useState('');  // Track submitted text for feedback
+  const [submittedText, setSubmittedText] = useState('');
   const [references, setReferences] = useState([]);
   const [showReferences, setShowReferences] = useState(false);
   const [viewingReference, setViewingReference] = useState(null);
 
   // User state
   const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState('user');  // user/instructor/admin
+  const [userRole, setUserRole] = useState('user');
   const [isAdmin, setIsAdmin] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('authToken') || '');
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
+  const [authMode, setAuthMode] = useState('signin');
   const [authError, setAuthError] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+
+  // Navbar panel state
+  const [activePanel, setActivePanel] = useState(null); // null | 'activity' | 'profile'
+
+  const togglePanel = (panel) => {
+    setActivePanel(prev => prev === panel ? null : panel);
+  };
 
   const fetchReferences = async () => {
     try {
@@ -85,7 +92,6 @@ function App() {
           setUserRole(response.data.user.role || 'user');
           setAuthToken(token);
 
-          // Check admin status
           try {
             const adminCheck = await axios.get(`${API_BASE}/admin/check`, {
               headers: { 'X-Username': response.data.user.email }
@@ -95,7 +101,6 @@ function App() {
             setIsAdmin(false);
           }
         } catch {
-          // Token invalid, clear it
           localStorage.removeItem('authToken');
           setAuthToken('');
         }
@@ -116,7 +121,6 @@ function App() {
       setUserEmail(user.email);
       setUserRole(user.role || 'user');
 
-      // Check admin status
       try {
         const adminCheck = await axios.get(`${API_BASE}/admin/check`, {
           headers: { 'X-Username': user.email }
@@ -173,6 +177,7 @@ function App() {
     setResult(null);
     setShowAdminDashboard(false);
     setAuthMode('signin');
+    setActivePanel(null);
   };
 
   // Auth Screen
@@ -207,32 +212,55 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div>
+      {/* ===== TOP NAVBAR ===== */}
+      <nav className="top-navbar">
+        <div className="navbar-left">
+          <div className="navbar-avatar">
+            {userEmail.charAt(0).toUpperCase()}
+          </div>
+          <span className="navbar-username">{userEmail}</span>
+        </div>
+        <div className="navbar-right">
+          {isAdmin && (
+            <button
+              className={`navbar-btn admin-btn ${showAdminDashboard ? 'active' : ''}`}
+              onClick={() => setShowAdminDashboard(!showAdminDashboard)}
+            >
+              📊 Admin
+            </button>
+          )}
+          <button
+            className={`navbar-btn ${activePanel === 'activity' ? 'active' : ''}`}
+            onClick={() => togglePanel('activity')}
+          >
+            Activity
+          </button>
+          <button
+            className={`navbar-btn ${activePanel === 'profile' ? 'active' : ''}`}
+            onClick={() => togglePanel('profile')}
+          >
+            Profile
+          </button>
+          <button className="navbar-btn logout" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </nav>
+
       {/* Reference Viewer Modal */}
       {viewingReference && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-800">{viewingReference.doc_id}</h3>
-              <button
-                onClick={closeReferenceModal}
-                className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="modal-overlay" onClick={closeReferenceModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{viewingReference.doc_id}</h3>
+              <button className="modal-close" onClick={closeReferenceModal}>✕</button>
             </div>
-            <div className="p-4 overflow-y-auto flex-1">
-              <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono bg-gray-50 p-4 rounded border">
-                {viewingReference.text}
-              </pre>
+            <div className="modal-body">
+              <pre>{viewingReference.text}</pre>
             </div>
-            <div className="p-4 border-t flex justify-end">
-              <button
-                onClick={closeReferenceModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-              >
+            <div className="modal-footer">
+              <button className="btn-primary" style={{ width: 'auto', marginTop: 0 }} onClick={closeReferenceModal}>
                 Close
               </button>
             </div>
@@ -240,153 +268,135 @@ function App() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto text-center mb-6">
-        <h1 className="text-4xl font-extrabold text-blue-900 tracking-tight">
-          Plagiarism Detection Agent
-        </h1>
-        <p className="mt-2 text-lg text-gray-600">
-          Powered by Semantic AI & Stylometry
-        </p>
-      </div>
-
-      {/* User Profile Section */}
-      <UserProfile username={userEmail} onLogout={handleLogout} />
-
-      {/* Admin Dashboard Toggle - Admin Only */}
-      {isAdmin && (
-        <div className="max-w-2xl mx-auto mb-4">
-          <button
-            onClick={() => setShowAdminDashboard(!showAdminDashboard)}
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition ${showAdminDashboard ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'}`}
-          >
-            <span>📊</span>
-            {showAdminDashboard ? 'Hide Admin Dashboard' : 'Open Admin Dashboard'}
-          </button>
+      {/* Collapsible Profile/Activity Panel */}
+      {activePanel && (
+        <div className="collapsible-panel">
+          <UserProfile
+            username={userEmail}
+            onLogout={handleLogout}
+            activePanel={activePanel}
+          />
         </div>
       )}
 
       {/* Admin Dashboard */}
       {showAdminDashboard && isAdmin && (
-        <AdminDashboard username={userEmail} />
+        <div className="collapsible-panel">
+          <AdminDashboard username={userEmail} />
+        </div>
       )}
 
-      {/* Reference Documents Section */}
-      <div className="max-w-2xl mx-auto mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="font-bold text-gray-700">Reference Documents</h3>
-              <span className="bg-blue-100 text-blue-700 text-sm px-2 py-1 rounded-full font-medium">
-                {references.length} loaded
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowReferences(!showReferences)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                {showReferences ? 'Hide' : 'Show'}
-              </button>
-              {references.length > 0 && (
-                <button
-                  onClick={clearReferences}
-                  className="text-sm text-red-600 hover:text-red-800 font-medium"
-                >
-                  Clear All
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="main-container">
+        {/* Page Title */}
+        <div className="page-title">
+          <h1>Plagiarism Detection</h1>
+          <p>Powered by Semantic AI &amp; Stylometry</p>
+        </div>
+
+        {/* Reference Documents Section */}
+        <div className="references-section">
+          <div className="glass-card">
+            <div className="references-header">
+              <div className="references-header-left">
+                <span className="glass-card-title" style={{ marginBottom: 0 }}>
+                  <span className="icon">📚</span> Reference Documents
+                </span>
+                <span className="ref-count-badge">{references.length} loaded</span>
+              </div>
+              <div className="references-header-right">
+                <button className="ref-btn show" onClick={() => setShowReferences(!showReferences)}>
+                  {showReferences ? 'Hide' : 'Show'}
                 </button>
-              )}
+                {references.length > 0 && (
+                  <button className="ref-btn clear" onClick={clearReferences}>
+                    Clear All
+                  </button>
+                )}
+              </div>
             </div>
+
+            {showReferences && references.length > 0 && (
+              <div className="ref-list">
+                {references.map((ref, idx) => (
+                  <div key={idx} className="ref-item">
+                    <div style={{ flex: 1, minWidth: 0 }} onClick={() => openReference(ref.doc_id)}>
+                      <div className="ref-item-name">{ref.doc_id}</div>
+                      <div className="ref-item-preview">{ref.preview}</div>
+                    </div>
+                    <div className="ref-item-actions">
+                      <button
+                        className="ref-action-btn view"
+                        onClick={() => openReference(ref.doc_id)}
+                        title="View full content"
+                      >
+                        👁
+                      </button>
+                      <button
+                        className="ref-action-btn delete"
+                        onClick={() => deleteReference(ref.doc_id)}
+                        title={`Delete ${ref.doc_id}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showReferences && references.length === 0 && (
+              <p className="empty-state">No reference documents loaded. Upload files using the Reference Check panel below.</p>
+            )}
           </div>
+        </div>
 
-          {showReferences && references.length > 0 && (
-            <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
-              {references.map((ref, idx) => (
-                <div key={idx} className="p-3 bg-gray-50 rounded border text-sm flex items-start justify-between gap-2">
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer hover:bg-gray-100 rounded p-1 -m-1 transition"
-                    onClick={() => openReference(ref.doc_id)}
-                    title="Click to view full content"
-                  >
-                    <span className="font-medium text-blue-600 hover:text-blue-800">{ref.doc_id}</span>
-                    <p className="text-gray-500 text-xs mt-1 truncate">{ref.preview}</p>
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => openReference(ref.doc_id)}
-                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
-                      title="View full content"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => deleteReference(ref.doc_id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition"
-                      title={`Delete ${ref.doc_id}`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+        {/* Upload Form — Two Column Layout */}
+        <UploadForm
+          onResult={(data) => { setResult(data); }}
+          onFileResults={setResult}
+          onReferencesUpdated={fetchReferences}
+          username={userEmail}
+          onTextSubmit={setSubmittedText}
+        />
+
+        {/* Results */}
+        {Array.isArray(result) ? (
+          <div className="results-section">
+            {result.map((res, idx) => (
+              <div key={idx} className="multi-file-result">
+                <div className="file-header">
+                  📄 {res.filename || `File ${idx + 1}`}
                 </div>
-              ))}
-            </div>
-          )}
+                {res.error ? (
+                  <p className="error-message">{res.error}</p>
+                ) : (
+                  <Results result={res.result} username={userEmail} userRole={userRole} submittedText={submittedText} />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Results result={result} username={userEmail} userRole={userRole} submittedText={submittedText} />
+        )}
 
-          {showReferences && references.length === 0 && (
-            <p className="mt-4 text-gray-500 text-sm">No reference documents loaded. Use the "Add References" tab to upload files.</p>
-          )}
-        </div>
+        {/* Learning Dashboard Toggle - Admin Only */}
+        {userEmail && userRole === 'admin' && (
+          <div style={{ marginTop: '24px' }}>
+            <button
+              className={`navbar-btn ${showDashboard ? 'active' : ''}`}
+              style={{ width: '100%', padding: '12px' }}
+              onClick={() => setShowDashboard(!showDashboard)}
+            >
+              📈 {showDashboard ? 'Hide Learning Dashboard' : 'Show Learning Dashboard'}
+            </button>
+          </div>
+        )}
+
+        {showDashboard && (
+          <FeedbackDashboard username={userEmail} userRole={userRole} />
+        )}
       </div>
-
-      <UploadForm
-        onResult={(data) => { setResult(data); }}
-        onFileResults={setResult}
-        onReferencesUpdated={fetchReferences}
-        username={userEmail}
-        onTextSubmit={setSubmittedText}
-      />
-
-      {Array.isArray(result) ? (
-        <div className="max-w-4xl mx-auto mt-6 space-y-4">
-          {result.map((res, idx) => (
-            <div key={idx} className="bg-white p-4 rounded shadow">
-              <h3 className="font-bold text-lg mb-2 border-b pb-1">
-                {res.filename || `File ${idx + 1}`}
-              </h3>
-              {res.error ? (
-                <p className="text-red-500">{res.error}</p>
-              ) : (
-                <Results result={res.result} username={userEmail} userRole={userRole} submittedText={submittedText} />
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Results result={result} username={userEmail} userRole={userRole} submittedText={submittedText} />
-      )}
-
-      {/* Learning Dashboard Toggle - Admin Only */}
-      {userEmail && userRole === 'admin' && (
-        <div className="max-w-4xl mx-auto mt-6">
-          <button
-            onClick={() => setShowDashboard(!showDashboard)}
-            className="w-full py-2 px-4 bg-purple-50 text-purple-700 rounded-lg border border-purple-200 hover:bg-purple-100 font-medium text-sm flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            {showDashboard ? 'Hide Learning Dashboard' : 'Show Learning Dashboard'}
-          </button>
-        </div>
-      )}
-
-      {showDashboard && (
-        <FeedbackDashboard username={userEmail} userRole={userRole} />
-      )}
     </div>
   );
 }
