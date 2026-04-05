@@ -51,41 +51,37 @@ const AdminDashboard = ({ username }) => {
                 label: 'High Risk',
                 emoji: '🔴',
                 range: '> 80%',
-                bgColor: 'bg-red-50',
-                borderColor: 'border-red-300',
-                headerBg: 'bg-red-100',
-                textColor: 'text-red-800',
-                badgeColor: 'bg-red-600'
+                color: 'var(--accent-red)',
+                bg: 'rgba(239, 68, 68, 0.1)',
+                bgHeader: 'rgba(239, 68, 68, 0.15)',
+                border: 'rgba(239, 68, 68, 0.3)',
             },
             medium_risk: {
                 label: 'Medium Risk',
                 emoji: '🟠',
                 range: '50% - 80%',
-                bgColor: 'bg-orange-50',
-                borderColor: 'border-orange-300',
-                headerBg: 'bg-orange-100',
-                textColor: 'text-orange-800',
-                badgeColor: 'bg-orange-500'
+                color: '#f97316',
+                bg: 'rgba(249, 115, 22, 0.1)',
+                bgHeader: 'rgba(249, 115, 22, 0.15)',
+                border: 'rgba(249, 115, 22, 0.3)',
             },
             normal_risk: {
                 label: 'Normal Risk',
                 emoji: '🟡',
                 range: '20% - 50%',
-                bgColor: 'bg-yellow-50',
-                borderColor: 'border-yellow-300',
-                headerBg: 'bg-yellow-100',
-                textColor: 'text-yellow-800',
-                badgeColor: 'bg-yellow-500'
+                color: 'var(--accent-yellow)',
+                bg: 'rgba(245, 158, 11, 0.1)',
+                bgHeader: 'rgba(245, 158, 11, 0.15)',
+                border: 'rgba(245, 158, 11, 0.3)',
             },
             clean: {
                 label: 'Clean',
                 emoji: '🟢',
                 range: '< 20%',
-                bgColor: 'bg-green-50',
-                borderColor: 'border-green-300',
-                headerBg: 'bg-green-100',
-                textColor: 'text-green-800',
-                badgeColor: 'bg-green-600'
+                color: 'var(--accent-green)',
+                bg: 'rgba(16, 185, 129, 0.1)',
+                bgHeader: 'rgba(16, 185, 129, 0.15)',
+                border: 'rgba(16, 185, 129, 0.3)',
             }
         };
         return configs[category];
@@ -99,21 +95,18 @@ const AdminDashboard = ({ username }) => {
 
     if (loading) {
         return (
-            <div className="bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto mt-6">
-                <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                    <span className="ml-3 text-gray-600">Loading dashboard...</span>
-                </div>
+            <div className="glass-card">
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center' }}>
+                    <span className="spinner"></span> Loading dashboard...
+                </p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto mt-6">
-                <div className="bg-red-50 border border-red-300 rounded-lg p-4">
-                    <p className="text-red-800">{error}</p>
-                </div>
+            <div className="glass-card">
+                <p className="error-message">{error}</p>
             </div>
         );
     }
@@ -121,119 +114,116 @@ const AdminDashboard = ({ username }) => {
     const { summary, risk_categories, category_counts } = dashboardData;
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto mt-6">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">📊 Admin Dashboard</h2>
-                <button
-                    onClick={fetchDashboardData}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm"
-                >
+        <div className="admin-dashboard">
+            {/* Header */}
+            <div className="admin-header">
+                <div className="glass-card-title">
+                    <span className="icon">📊</span> Admin Dashboard
+                </div>
+                <button className="admin-refresh-btn" onClick={fetchDashboardData}>
                     🔄 Refresh
                 </button>
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-                <div className="bg-indigo-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-indigo-700">{summary.total_users}</p>
-                    <p className="text-sm text-gray-600">Total Users</p>
+            <div className="admin-stats-grid">
+                <div className="admin-stat-card">
+                    <span className="admin-stat-value" style={{ color: 'var(--accent-indigo)' }}>{summary.total_users}</span>
+                    <span className="admin-stat-label">Total Users</span>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-blue-700">{summary.total_checks}</p>
-                    <p className="text-sm text-gray-600">Total Checks</p>
+                <div className="admin-stat-card">
+                    <span className="admin-stat-value" style={{ color: 'var(--accent-blue)' }}>{summary.total_checks}</span>
+                    <span className="admin-stat-label">Total Checks</span>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-purple-700">{summary.average_score}%</p>
-                    <p className="text-sm text-gray-600">Avg Score</p>
+                <div className="admin-stat-card">
+                    <span className="admin-stat-value" style={{ color: 'var(--accent-purple)' }}>{summary.average_score}%</span>
+                    <span className="admin-stat-label">Avg Score</span>
                 </div>
-                <div className="bg-red-50 p-4 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-red-700">{summary.highest_score}%</p>
-                    <p className="text-sm text-gray-600">Highest Score</p>
+                <div className="admin-stat-card">
+                    <span className="admin-stat-value" style={{ color: 'var(--accent-red)' }}>{summary.highest_score}%</span>
+                    <span className="admin-stat-label">Highest Score</span>
                 </div>
             </div>
 
-            {/* Risk Category Distribution */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-3">Risk Distribution</h3>
-                <div className="flex gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-red-500"></span>
-                        <span className="text-sm">High: {category_counts.high_risk}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-orange-500"></span>
-                        <span className="text-sm">Medium: {category_counts.medium_risk}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-yellow-500"></span>
-                        <span className="text-sm">Normal: {category_counts.normal_risk}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-green-500"></span>
-                        <span className="text-sm">Clean: {category_counts.clean}</span>
-                    </div>
+            {/* Risk Distribution Bar */}
+            <div className="admin-risk-bar-section">
+                <div className="admin-section-title">Risk Distribution</div>
+                <div className="admin-risk-legend">
+                    {[
+                        { key: 'high_risk', color: 'var(--accent-red)', label: 'High' },
+                        { key: 'medium_risk', color: '#f97316', label: 'Medium' },
+                        { key: 'normal_risk', color: 'var(--accent-yellow)', label: 'Normal' },
+                        { key: 'clean', color: 'var(--accent-green)', label: 'Clean' },
+                    ].map(item => (
+                        <div key={item.key} className="admin-risk-legend-item">
+                            <span className="admin-risk-dot" style={{ background: item.color }}></span>
+                            <span>{item.label}: {category_counts[item.key]}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
 
             {/* Risk Categories */}
-            <div className="space-y-4">
+            <div className="admin-categories">
                 {['high_risk', 'medium_risk', 'normal_risk', 'clean'].map(category => {
                     const config = getCategoryConfig(category);
                     const users = risk_categories[category];
                     const isExpanded = expandedCategories[category];
 
                     return (
-                        <div key={category} className={`border ${config.borderColor} rounded-lg overflow-hidden`}>
+                        <div key={category} className="admin-category" style={{ borderColor: config.border }}>
                             <button
+                                className="admin-category-header"
                                 onClick={() => toggleCategory(category)}
-                                className={`w-full ${config.headerBg} px-4 py-3 flex items-center justify-between ${config.textColor} font-semibold`}
+                                style={{ background: config.bgHeader }}
                             >
-                                <div className="flex items-center gap-2">
+                                <div className="admin-category-left">
                                     <span>{config.emoji}</span>
-                                    <span>{config.label}</span>
-                                    <span className="text-sm font-normal">({config.range})</span>
+                                    <span style={{ color: config.color, fontWeight: 600 }}>{config.label}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({config.range})</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`${config.badgeColor} text-white px-2 py-0.5 rounded-full text-sm`}>
+                                <div className="admin-category-right">
+                                    <span className="admin-badge" style={{ background: config.color }}>
                                         {users.length} users
                                     </span>
-                                    <span>{isExpanded ? '▼' : '▶'}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{isExpanded ? '▼' : '▶'}</span>
                                 </div>
                             </button>
 
                             {isExpanded && (
-                                <div className={`${config.bgColor} p-4`}>
+                                <div className="admin-category-body" style={{ background: config.bg }}>
                                     {users.length === 0 ? (
-                                        <p className="text-gray-500 text-sm italic">No users in this category</p>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic', padding: '8px 0' }}>
+                                            No users in this category
+                                        </p>
                                     ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
+                                        <div className="admin-table-wrapper">
+                                            <table className="admin-table">
                                                 <thead>
-                                                    <tr className="text-left text-gray-600 border-b">
-                                                        <th className="pb-2">Email</th>
-                                                        <th className="pb-2">Highest Score</th>
-                                                        <th className="pb-2">Total Checks</th>
-                                                        <th className="pb-2">Role</th>
-                                                        <th className="pb-2">Joined</th>
+                                                    <tr>
+                                                        <th>Email</th>
+                                                        <th>Highest Score</th>
+                                                        <th>Total Checks</th>
+                                                        <th>Role</th>
+                                                        <th>Joined</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {users.map((user, idx) => (
-                                                        <tr key={idx} className="border-b border-gray-200 last:border-0">
-                                                            <td className="py-2 font-medium">{user.email}</td>
-                                                            <td className="py-2">
-                                                                <span className={`${config.badgeColor} text-white px-2 py-0.5 rounded text-xs`}>
+                                                        <tr key={idx}>
+                                                            <td className="admin-td-email">{user.email}</td>
+                                                            <td>
+                                                                <span className="admin-score-badge" style={{ background: config.color }}>
                                                                     {user.highest_score.toFixed(1)}%
                                                                 </span>
                                                             </td>
-                                                            <td className="py-2">{user.total_checks}</td>
-                                                            <td className="py-2">
-                                                                <span className={`px-2 py-0.5 rounded text-xs ${user.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'
-                                                                    }`}>
+                                                            <td>{user.total_checks}</td>
+                                                            <td>
+                                                                <span className={`admin-role-badge ${user.role === 'admin' ? 'admin-role' : ''}`}>
                                                                     {user.role}
                                                                 </span>
                                                             </td>
-                                                            <td className="py-2 text-gray-500">{formatDate(user.created_at)}</td>
+                                                            <td className="admin-td-date">{formatDate(user.created_at)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
