@@ -46,14 +46,17 @@ class User(Base):
         
         for activity in self.activities:
             details = activity.details or {}
-            if activity.activity_type == "text_check":
+            if activity.activity_type in ("text_check", "cross_user_check"):
                 stats["text_checks"] += 1
                 score = details.get("max_score", 0)
                 if score > stats["highest_plagiarism_score"]:
                     stats["highest_plagiarism_score"] = score
-            elif activity.activity_type == "file_check":
+            elif activity.activity_type in ("file_check", "cross_user_file_check"):
                 stats["file_checks"] += 1
                 stats["total_files_analyzed"] += details.get("file_count", 0)
+                score = details.get("max_score", 0)
+                if score > stats["highest_plagiarism_score"]:
+                    stats["highest_plagiarism_score"] = score
             elif activity.activity_type == "reference_add":
                 stats["references_added"] += details.get("count", 0)
             elif activity.activity_type == "reference_delete":

@@ -226,11 +226,11 @@ const UploadForm = ({ onResult, onFileResults, onReferencesUpdated, username, on
                     </form>
                 </div>
 
-                {/* Reference Check / My Uploads Panel */}
+                {/* Reference Check / Add Uploads Panel */}
                 <div className="glass-card">
                     <div className="glass-card-title">
                         <span className="icon">{refMode === 'reference' ? '➕' : '📂'}</span>
-                        {refMode === 'reference' ? 'Reference Check' : 'My Uploads'}
+                        {refMode === 'reference' ? 'Reference Check' : 'Add Uploads'}
                     </div>
 
                     <div className="mode-toggle">
@@ -244,7 +244,7 @@ const UploadForm = ({ onResult, onFileResults, onReferencesUpdated, username, on
                             className={refMode === 'myupload' ? 'active' : ''}
                             onClick={() => { setRefMode('myupload'); setSuccessMessage(''); }}
                         >
-                            My Uploads
+                            Add Uploads
                         </button>
                     </div>
 

@@ -37,8 +37,13 @@ const UserProfile = ({ username, onLogout, activePanel }) => {
         switch (type) {
             case 'text_check': return '📝';
             case 'file_check': return '📁';
+            case 'cross_user_check': return '🔍';
+            case 'cross_user_file_check': return '🔎';
             case 'reference_add': return '➕';
             case 'reference_delete': return '🗑️';
+            case 'document_upload': return '📤';
+            case 'document_delete': return '🗑️';
+            case 'feedback_submit': return '💬';
             default: return '📋';
         }
     };
@@ -47,8 +52,13 @@ const UserProfile = ({ username, onLogout, activePanel }) => {
         switch (type) {
             case 'text_check': return 'Text Analysis';
             case 'file_check': return 'File Analysis';
+            case 'cross_user_check': return 'Cross-User Text Check';
+            case 'cross_user_file_check': return 'Cross-User File Check';
             case 'reference_add': return 'Added References';
             case 'reference_delete': return 'Deleted Reference';
+            case 'document_upload': return 'Document Upload';
+            case 'document_delete': return 'Document Deleted';
+            case 'feedback_submit': return 'Feedback Submitted';
             default: return type;
         }
     };
@@ -125,8 +135,14 @@ const UserProfile = ({ username, onLogout, activePanel }) => {
                                         {activity.type === 'text_check' && (
                                             <span>Score: {activity.details.max_score?.toFixed(1) || 0}% • {activity.details.matches_found || 0} matches</span>
                                         )}
+                                        {activity.type === 'cross_user_check' && (
+                                            <span>Score: {activity.details.max_score?.toFixed(1) || 0}% • {activity.details.matches_found || 0} matches • {activity.details.documents_checked || 0} docs checked</span>
+                                        )}
                                         {activity.type === 'file_check' && (
                                             <span>{activity.details.file_count || 0} file(s) analyzed</span>
+                                        )}
+                                        {activity.type === 'cross_user_file_check' && (
+                                            <span>{activity.details.file_count || 0} file(s) cross-checked</span>
                                         )}
                                         {activity.type === 'reference_add' && (
                                             <span>Added {activity.details.count || 0} reference(s)</span>
